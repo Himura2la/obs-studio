@@ -21,8 +21,17 @@
 #include <QDialogButtonBox>
 #include <QPointer>
 #include <QSplitter>
+#include <QTabWidget>
 #include "qt-display.hpp"
 #include <obs.hpp>
+#include "window-basic-filters.hpp"
+#include "window-basic-transform.hpp"
+
+enum class PropertiesType {
+	Scene,
+	Source,
+	Transition
+};
 
 class OBSPropertiesView;
 class OBSBasic;
@@ -33,8 +42,9 @@ class OBSBasicProperties : public QDialog {
 private:
 	QPointer<OBSQTDisplay> preview;
 
-	OBSBasic   *main;
-	bool       acceptClicked;
+	OBSBasic            *main;
+	bool                acceptClicked;
+	enum PropertiesType propType;
 
 	OBSSource  source;
 	OBSSignal  removedSignal;
@@ -42,8 +52,19 @@ private:
 	OBSSignal  updatePropertiesSignal;
 	OBSData    oldSettings;
 	OBSPropertiesView *view;
+	OBSBasicFilters *filters;
+	OBSBasicTransform *transformWindow;
 	QDialogButtonBox *buttonBox;
 	QSplitter *windowSplitter;
+	QTabWidget *tabs;
+	QWidget *HotkeysTab(QWidget *parent);
+	QWidget *PerSceneTransitionWidget(QWidget *parent);
+	QWidget *AdvancedTab(QWidget *parent);
+	QComboBox *combo;
+	QSpinBox *duration;
+	QComboBox *deinterlace;
+	QComboBox *sf;
+	QComboBox *order;
 
 	static void SourceRemoved(void *data, calldata_t *params);
 	static void SourceRenamed(void *data, calldata_t *params);
@@ -55,12 +76,17 @@ private:
 
 private slots:
 	void on_buttonBox_clicked(QAbstractButton *button);
+	void SetDeinterlacingMode(int index);
+	void SetDeinterlacingOrder(int index);
+	void SetScaleFilter(int index);
 
 public:
-	OBSBasicProperties(QWidget *parent, OBSSource source_);
+	OBSBasicProperties(QWidget *parent, OBSSource source_,
+			PropertiesType type);
 	~OBSBasicProperties();
 
 	void Init();
+	void SetTabIndex(int tab);
 
 protected:
 	virtual void closeEvent(QCloseEvent *event) override;

@@ -1918,12 +1918,6 @@ OBSBasic::~OBSBasic()
 	if (properties)
 		delete properties;
 
-	if (filters)
-		delete filters;
-
-	if (transformWindow)
-		delete transformWindow;
-
 	if (advAudioWindow)
 		delete advAudioWindow;
 
@@ -2108,24 +2102,15 @@ void OBSBasic::CreateInteractionWindow(obs_source_t *source)
 	interaction->setAttribute(Qt::WA_DeleteOnClose, true);
 }
 
-void OBSBasic::CreatePropertiesWindow(obs_source_t *source)
+void OBSBasic::CreatePropertiesWindow(obs_source_t *source, PropertiesType type)
 {
 	if (properties)
 		properties->close();
 
-	properties = new OBSBasicProperties(this, source);
+	properties = new OBSBasicProperties(this, source, type);
+
 	properties->Init();
 	properties->setAttribute(Qt::WA_DeleteOnClose, true);
-}
-
-void OBSBasic::CreateFiltersWindow(obs_source_t *source)
-{
-	if (filters)
-		filters->close();
-
-	filters = new OBSBasicFilters(this, source);
-	filters->Init();
-	filters->setAttribute(Qt::WA_DeleteOnClose, true);
 }
 
 /* Qt callbacks for invokeMethod */
@@ -2379,22 +2364,13 @@ static inline void SetSourceMixerHidden(obs_source_t *source, bool hidden)
 	obs_data_release(priv_settings);
 }
 
-void OBSBasic::GetAudioSourceFilters()
-{
-	QAction *action = reinterpret_cast<QAction*>(sender());
-	VolControl *vol = action->property("volControl").value<VolControl*>();
-	obs_source_t *source = vol->GetSource();
-
-	CreateFiltersWindow(source);
-}
-
 void OBSBasic::GetAudioSourceProperties()
 {
 	QAction *action = reinterpret_cast<QAction*>(sender());
 	VolControl *vol = action->property("volControl").value<VolControl*>();
 	obs_source_t *source = vol->GetSource();
 
-	CreatePropertiesWindow(source);
+	CreatePropertiesWindow(source, PropertiesType::Source);
 }
 
 void OBSBasic::HideAudioControl()
@@ -2497,7 +2473,6 @@ void OBSBasic::VolControlContextMenu()
 	QAction unhideAllAction(QTStr("UnhideAll"), this);
 	QAction mixerRenameAction(QTStr("Rename"), this);
 
-	QAction filtersAction(QTStr("Filters"), this);
 	QAction propertiesAction(QTStr("Properties"), this);
 	QAction advPropAction(QTStr("Basic.MainMenu.Edit.AdvAudio"), this);
 
@@ -2513,9 +2488,6 @@ void OBSBasic::VolControlContextMenu()
 			this, &OBSBasic::MixerRenameSource,
 			Qt::DirectConnection);
 
-	connect(&filtersAction, &QAction::triggered,
-			this, &OBSBasic::GetAudioSourceFilters,
-			Qt::DirectConnection);
 	connect(&propertiesAction, &QAction::triggered,
 			this, &OBSBasic::GetAudioSourceProperties,
 			Qt::DirectConnection);
@@ -2530,8 +2502,6 @@ void OBSBasic::VolControlContextMenu()
 	mixerRenameAction.setProperty("volControl",
 			QVariant::fromValue<VolControl*>(vol));
 
-	filtersAction.setProperty("volControl",
-			QVariant::fromValue<VolControl*>(vol));
 	propertiesAction.setProperty("volControl",
 			QVariant::fromValue<VolControl*>(vol));
 
@@ -2542,7 +2512,6 @@ void OBSBasic::VolControlContextMenu()
 	popup.addAction(&hideAction);
 	popup.addAction(&mixerRenameAction);
 	popup.addSeparator();
-	popup.addAction(&filtersAction);
 	popup.addAction(&propertiesAction);
 	popup.addAction(&advPropAction);
 	popup.exec(QCursor::pos());
@@ -3592,13 +3561,8 @@ void OBSBasic::on_scenes_customContextMenuRequested(const QPoint &pos)
 
 		popup.addAction(sceneWindow);
 		popup.addSeparator();
-		popup.addAction(QTStr("Filters"), this,
-				SLOT(OpenSceneFilters()));
 
 		popup.addSeparator();
-
-		QMenu *transitionMenu = CreatePerSceneTransitionMenu();
-		popup.addMenu(transitionMenu);
 
 		/* ---------------------- */
 
@@ -3769,103 +3733,6 @@ void OBSBasic::EditSceneItemName()
 	item->setFlags(flags);
 }
 
-void OBSBasic::SetDeinterlacingMode()
-{
-	QAction *action = reinterpret_cast<QAction*>(sender());
-	obs_deinterlace_mode mode =
-		(obs_deinterlace_mode)action->property("mode").toInt();
-	OBSSceneItem sceneItem = GetCurrentSceneItem();
-	obs_source_t *source = obs_sceneitem_get_source(sceneItem);
-
-	obs_source_set_deinterlace_mode(source, mode);
-}
-
-void OBSBasic::SetDeinterlacingOrder()
-{
-	QAction *action = reinterpret_cast<QAction*>(sender());
-	obs_deinterlace_field_order order =
-		(obs_deinterlace_field_order)action->property("order").toInt();
-	OBSSceneItem sceneItem = GetCurrentSceneItem();
-	obs_source_t *source = obs_sceneitem_get_source(sceneItem);
-
-	obs_source_set_deinterlace_field_order(source, order);
-}
-
-QMenu *OBSBasic::AddDeinterlacingMenu(obs_source_t *source)
-{
-	QMenu *menu = new QMenu(QTStr("Deinterlacing"));
-	obs_deinterlace_mode deinterlaceMode =
-		obs_source_get_deinterlace_mode(source);
-	obs_deinterlace_field_order deinterlaceOrder =
-		obs_source_get_deinterlace_field_order(source);
-	QAction *action;
-
-#define ADD_MODE(name, mode) \
-	action = menu->addAction(QTStr("" name), this, \
-				SLOT(SetDeinterlacingMode())); \
-	action->setProperty("mode", (int)mode); \
-	action->setCheckable(true); \
-	action->setChecked(deinterlaceMode == mode);
-
-	ADD_MODE("Disable",                OBS_DEINTERLACE_MODE_DISABLE);
-	ADD_MODE("Deinterlacing.Discard",  OBS_DEINTERLACE_MODE_DISCARD);
-	ADD_MODE("Deinterlacing.Retro",    OBS_DEINTERLACE_MODE_RETRO);
-	ADD_MODE("Deinterlacing.Blend",    OBS_DEINTERLACE_MODE_BLEND);
-	ADD_MODE("Deinterlacing.Blend2x",  OBS_DEINTERLACE_MODE_BLEND_2X);
-	ADD_MODE("Deinterlacing.Linear",   OBS_DEINTERLACE_MODE_LINEAR);
-	ADD_MODE("Deinterlacing.Linear2x", OBS_DEINTERLACE_MODE_LINEAR_2X);
-	ADD_MODE("Deinterlacing.Yadif",    OBS_DEINTERLACE_MODE_YADIF);
-	ADD_MODE("Deinterlacing.Yadif2x",  OBS_DEINTERLACE_MODE_YADIF_2X);
-#undef ADD_MODE
-
-	menu->addSeparator();
-
-#define ADD_ORDER(name, order) \
-	action = menu->addAction(QTStr("Deinterlacing." name), this, \
-				SLOT(SetDeinterlacingOrder())); \
-	action->setProperty("order", (int)order); \
-	action->setCheckable(true); \
-	action->setChecked(deinterlaceOrder == order);
-
-	ADD_ORDER("TopFieldFirst",    OBS_DEINTERLACE_FIELD_ORDER_TOP);
-	ADD_ORDER("BottomFieldFirst", OBS_DEINTERLACE_FIELD_ORDER_BOTTOM);
-#undef ADD_ORDER
-
-	return menu;
-}
-
-void OBSBasic::SetScaleFilter()
-{
-	QAction *action = reinterpret_cast<QAction*>(sender());
-	obs_scale_type mode = (obs_scale_type)action->property("mode").toInt();
-	OBSSceneItem sceneItem = GetCurrentSceneItem();
-
-	obs_sceneitem_set_scale_filter(sceneItem, mode);
-}
-
-QMenu *OBSBasic::AddScaleFilteringMenu(obs_sceneitem_t *item)
-{
-	QMenu *menu = new QMenu(QTStr("ScaleFiltering"));
-	obs_scale_type scaleFilter = obs_sceneitem_get_scale_filter(item);
-	QAction *action;
-
-#define ADD_MODE(name, mode) \
-	action = menu->addAction(QTStr("" name), this, \
-				SLOT(SetScaleFilter())); \
-	action->setProperty("mode", (int)mode); \
-	action->setCheckable(true); \
-	action->setChecked(scaleFilter == mode);
-
-	ADD_MODE("Disable",                 OBS_SCALE_DISABLE);
-	ADD_MODE("ScaleFiltering.Point",    OBS_SCALE_POINT);
-	ADD_MODE("ScaleFiltering.Bilinear", OBS_SCALE_BILINEAR);
-	ADD_MODE("ScaleFiltering.Bicubic",  OBS_SCALE_BICUBIC);
-	ADD_MODE("ScaleFiltering.Lanczos",  OBS_SCALE_LANCZOS);
-#undef ADD_MODE
-
-	return menu;
-}
-
 void OBSBasic::CreateSourcePopupMenu(QListWidgetItem *item, bool preview)
 {
 	QMenu popup(this);
@@ -3925,8 +3792,6 @@ void OBSBasic::CreateSourcePopupMenu(QListWidgetItem *item, bool preview)
 		OBSSceneItem sceneItem = GetSceneItem(item);
 		obs_source_t *source = obs_sceneitem_get_source(sceneItem);
 		uint32_t flags = obs_source_get_output_flags(source);
-		bool isAsyncVideo = (flags & OBS_SOURCE_ASYNC_VIDEO) ==
-			OBS_SOURCE_ASYNC_VIDEO;
 		bool hasAudio = (flags & OBS_SOURCE_AUDIO) ==
 			OBS_SOURCE_AUDIO;
 		QAction *action;
@@ -3960,14 +3825,6 @@ void OBSBasic::CreateSourcePopupMenu(QListWidgetItem *item, bool preview)
 			actionHideMixer->setChecked(SourceMixerHidden(source));
 		}
 
-		if (isAsyncVideo) {
-			popup.addMenu(AddDeinterlacingMenu(source));
-			popup.addSeparator();
-		}
-
-		popup.addMenu(AddScaleFilteringMenu(sceneItem));
-		popup.addSeparator();
-
 		popup.addMenu(sourceProjector);
 		popup.addAction(sourceWindow);
 		popup.addSeparator();
@@ -3978,8 +3835,6 @@ void OBSBasic::CreateSourcePopupMenu(QListWidgetItem *item, bool preview)
 		action->setEnabled(obs_source_get_output_flags(source) &
 				OBS_SOURCE_INTERACTION);
 
-		popup.addAction(QTStr("Filters"), this,
-				SLOT(OpenFilters()));
 		popup.addAction(QTStr("Properties"), this,
 				SLOT(on_actionSourceProperties_triggered()));
 
@@ -4005,7 +3860,7 @@ void OBSBasic::on_sources_itemDoubleClicked(QListWidgetItem *witem)
 	OBSSource source = obs_sceneitem_get_source(item);
 
 	if (source)
-		CreatePropertiesWindow(source);
+		CreatePropertiesWindow(source, PropertiesType::Source);
 }
 
 void OBSBasic::on_scenes_itemDoubleClicked(QListWidgetItem *witem)
@@ -4032,7 +3887,8 @@ void OBSBasic::AddSource(const char *id)
 		OBSBasicSourceSelect sourceSelect(this, id);
 		sourceSelect.exec();
 		if (sourceSelect.newSource)
-			CreatePropertiesWindow(sourceSelect.newSource);
+			CreatePropertiesWindow(sourceSelect.newSource,
+					PropertiesType::Source);
 	}
 }
 
@@ -4198,7 +4054,16 @@ void OBSBasic::on_actionSourceProperties_triggered()
 	OBSSource source = obs_sceneitem_get_source(item);
 
 	if (source)
-		CreatePropertiesWindow(source);
+		CreatePropertiesWindow(source, PropertiesType::Source);
+}
+
+void OBSBasic::on_actionSceneProperties_triggered()
+{
+	OBSScene scene = GetCurrentScene();
+	OBSSource source = obs_scene_get_source(scene);
+
+	if (source)
+		CreatePropertiesWindow(source, PropertiesType::Scene);
 }
 
 void OBSBasic::on_actionSourceUp_triggered()
@@ -4431,22 +4296,6 @@ void OBSBasic::SceneItemNameEdited(QWidget *editor,
 	SetupVisibilityItem(ui->sources, listItem, item);
 
 	UNUSED_PARAMETER(endHint);
-}
-
-void OBSBasic::OpenFilters()
-{
-	OBSSceneItem item = GetCurrentSceneItem();
-	OBSSource source = obs_sceneitem_get_source(item);
-
-	CreateFiltersWindow(source);
-}
-
-void OBSBasic::OpenSceneFilters()
-{
-	OBSScene scene = GetCurrentScene();
-	OBSSource source = obs_scene_get_source(scene);
-
-	CreateFiltersWindow(source);
 }
 
 #define RECORDING_START \
@@ -5238,12 +5087,17 @@ config_t *OBSBasic::Config() const
 
 void OBSBasic::on_actionEditTransform_triggered()
 {
-	if (transformWindow)
-		transformWindow->close();
+	if (properties)
+		properties->close();
 
-	transformWindow = new OBSBasicTransform(this);
-	transformWindow->show();
-	transformWindow->setAttribute(Qt::WA_DeleteOnClose, true);
+	OBSSceneItem item = GetCurrentSceneItem();
+	OBSSource source = obs_sceneitem_get_source(item);
+
+	properties = new OBSBasicProperties(this,
+			source, PropertiesType::Source);
+	properties->SetTabIndex(2);
+	properties->Init();
+	properties->setAttribute(Qt::WA_DeleteOnClose, true);
 }
 
 static obs_transform_info copiedTransformInfo;

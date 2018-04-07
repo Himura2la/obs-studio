@@ -36,7 +36,7 @@ using namespace std;
 Q_DECLARE_METATYPE(OBSSource);
 
 OBSBasicFilters::OBSBasicFilters(QWidget *parent, OBSSource source_)
-	: QDialog                      (parent),
+	: QWidget                      (parent),
 	  ui                           (new Ui::OBSBasicFilters),
 	  source                       (source_),
 	  addSignal                    (obs_source_get_signal_handler(source),
@@ -58,7 +58,7 @@ OBSBasicFilters::OBSBasicFilters(QWidget *parent, OBSSource source_)
 	                                "rename",
 	                                OBSBasicFilters::SourceRenamed, this)
 {
-	main = reinterpret_cast<OBSBasic*>(parent);
+	main = reinterpret_cast<OBSBasic*>(App()->GetMainWindow());
 
 	ui->setupUi(this);
 	UpdateFilters();
@@ -87,16 +87,6 @@ OBSBasicFilters::OBSBasicFilters(QWidget *parent, OBSSource source_)
 			SLOT(EffectFilterNameEdited(QWidget*,
 					QAbstractItemDelegate::EndEditHint)));
 
-	QPushButton *close = ui->buttonBox->button(QDialogButtonBox::Close);
-	connect(close, SIGNAL(clicked()), this, SLOT(close()));
-	close->setDefault(true);
-
-	ui->buttonBox->button(QDialogButtonBox::Reset)->setText(
-			QTStr("Defaults"));
-
-	connect(ui->buttonBox->button(QDialogButtonBox::Reset),
-		SIGNAL(clicked()), this, SLOT(ResetFilters()));
-
 	uint32_t flags = obs_source_get_output_flags(source);
 	bool audio     = (flags & OBS_SOURCE_AUDIO) != 0;
 	bool audioOnly = (flags & OBS_SOURCE_VIDEO) == 0;
@@ -113,21 +103,6 @@ OBSBasicFilters::OBSBasicFilters(QWidget *parent, OBSSource source_)
 
 	if (audioOnly || (audio && !async))
 		ui->asyncLabel->setText(QTStr("Basic.Filters.AudioFilters"));
-
-	auto addDrawCallback = [this] ()
-	{
-		obs_display_add_draw_callback(ui->preview->GetDisplay(),
-				OBSBasicFilters::DrawPreview, this);
-	};
-
-	enum obs_source_type type = obs_source_get_type(source);
-	uint32_t caps = obs_source_get_output_flags(source);
-	bool drawable_type = type == OBS_SOURCE_TYPE_INPUT ||
-		type == OBS_SOURCE_TYPE_SCENE;
-
-	if (drawable_type && (caps & OBS_SOURCE_VIDEO) != 0)
-		connect(ui->preview, &OBSQTDisplay::DisplayCreated,
-				addDrawCallback);
 }
 
 OBSBasicFilters::~OBSBasicFilters()
@@ -457,18 +432,6 @@ void OBSBasicFilters::AddFilterFromAction()
 		return;
 
 	AddNewFilter(QT_TO_UTF8(action->data().toString()));
-}
-
-void OBSBasicFilters::closeEvent(QCloseEvent *event)
-{
-	QDialog::closeEvent(event);
-	if (!event->isAccepted())
-		return;
-
-	obs_display_remove_draw_callback (ui->preview->GetDisplay(),
-		OBSBasicFilters::DrawPreview, this);
-
-	main->SaveProject();
 }
 
 /* OBS Signals */

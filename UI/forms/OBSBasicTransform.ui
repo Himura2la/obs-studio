@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>OBSBasicTransform</class>
- <widget class="QDialog" name="OBSBasicTransform">
+ <widget class="QWidget" name="OBSBasicTransform">
   <property name="enabled">
    <bool>false</bool>
   </property>
@@ -637,13 +637,6 @@
       </layout>
      </item>
     </layout>
-   </item>
-   <item>
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Reset|QDialogButtonBox::Close</set>
-     </property>
-    </widget>
    </item>
   </layout>
  </widget>
