@@ -694,6 +694,7 @@ struct obs_source {
 	struct matrix4                  transition_matrices[2];
 
 	struct audio_monitor            *monitor;
+	bool                            display_muted;
 	bool                            monitoring_active;
 
 	obs_data_t                      *private_settings;

@@ -1298,8 +1298,7 @@ static void source_output_audio_data(obs_source_t *source,
 		source->last_sync_offset = sync_offset;
 	}
 
-	// TODO: Make monitoring work when stream is muted
-	if (source->user_muted && source->monitoring_active) {
+	if (!(source->display_muted && source->monitoring_active)) {
 		if (push_back && source->audio_ts)
 			source_output_audio_push_back(source, &in);
 		else
@@ -3564,6 +3563,11 @@ bool obs_source_muted(const obs_source_t *source)
 {
 	return obs_source_valid(source, "obs_source_muted") ?
 		source->user_muted : false;
+}
+
+void obs_source_set_display_muted(obs_source_t *source, bool muted)
+{
+	source->display_muted = muted;
 }
 
 void obs_source_set_muted(obs_source_t *source, bool muted)

@@ -928,6 +928,7 @@ EXPORT void obs_source_set_enabled(obs_source_t *source, bool enabled);
 
 EXPORT bool obs_source_muted(const obs_source_t *source);
 EXPORT void obs_source_set_muted(obs_source_t *source, bool muted);
+EXPORT void obs_source_set_display_muted(obs_source_t *source, bool muted);
 
 EXPORT bool obs_source_push_to_mute_enabled(obs_source_t *source);
 EXPORT void obs_source_enable_push_to_mute(obs_source_t *source, bool enabled);

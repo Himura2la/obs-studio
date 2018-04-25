@@ -225,6 +225,7 @@ private:
 	QSlider            *slider;
 	MuteCheckBox       *mute;
 	HeadphoneCheckBox  *headphone;
+	bool               display_muted;
 	QPushButton        *config = nullptr;
 	float              levelTotal;
 	float              levelCount;

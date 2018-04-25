@@ -63,13 +63,18 @@ void VolControl::VolumeChanged()
 
 void VolControl::VolumeMuted(bool muted)
 {
-	if (mute->isChecked() != muted)
-		mute->setChecked(muted);
+	bool target_muted = headphone->isChecked() ? display_muted : muted;
+
+	if (mute->isChecked() != target_muted)
+		mute->setChecked(target_muted);
 }
 
 void VolControl::SetMuted(bool checked)
 {
-	obs_source_set_muted(source, checked);
+	display_muted = checked;
+
+	obs_source_set_display_muted(source, checked);
+	obs_source_set_muted(source, !headphone->isChecked() && checked);
 }
 
 void VolControl::SetMonitor(bool checked)
@@ -78,6 +83,8 @@ void VolControl::SetMonitor(bool checked)
 
 	blog(LOG_INFO, "User changed audio monitoring for source '%s' to: %d",
 			obs_source_get_name(source), checked);
+
+	SetMuted(display_muted);
 }
 
 void VolControl::SliderChanged(int vol)
@@ -162,8 +169,8 @@ VolControl::VolControl(OBSSource source_, bool showConfig)
 	textLayout->setAlignment(nameLabel, Qt::AlignLeft);
 	textLayout->setAlignment(volLabel,  Qt::AlignRight);
 
-	bool muted = obs_source_muted(source);
-	mute->setChecked(muted);
+	display_muted = obs_source_muted(source);
+	mute->setChecked(display_muted);
 	mute->setAccessibleName(
 			QTStr("VolControl.Mute").arg(sourceName));
 
