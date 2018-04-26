@@ -264,12 +264,8 @@ public:
 	void SetMeterDecayRate(qreal q);
 	void setPeakMeterType(enum obs_peak_meter_type peakMeterType);
 
-	void SetMonitorType();
-
-	bool headphonesChecked;
-	bool monitorOnlyChecked;
+	void SetMonitorType(bool muteChecked, bool monitorChecked);
 
 public slots:
 	void SetMonitor(bool checked);
-	void SetMonitorOnly(bool checked);
 };
