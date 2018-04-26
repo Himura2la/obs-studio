@@ -410,6 +410,8 @@ public slots:
 			bool create_new,
 			const QString &name = QString());
 
+	void MonitorOnlyToggled(bool checked);
+
 private slots:
 	void AddSceneItem(OBSSceneItem item);
 	void RemoveSceneItem(OBSSceneItem item);
